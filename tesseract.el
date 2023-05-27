@@ -90,5 +90,41 @@
 			     "-"
 			     "-l" tesseract-language)))))
 
+(defun tesseract/ocr-image (images)
+  "Run Tesseract OCR on each image.
+  
+  IMAGES is a list of paths to the images."
+  (let ((tesseract-language tesseract/current-language))
+    (dolist (current-image images)
+      (call-process  "tesseract"
+		     nil
+		     nil
+		     t
+		     current-image
+		     (car (split-string current-image "\\.[[:alpha:]]+$" t))
+		     "-l" tesseract-language
+		     "txt"
+		     "quiet"))))
+
+(defconst tesseract-image-regexp
+  "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
+  "Regular expression for image file types supported by Tesseract (Leptonica).")
+
+(defun tesseract/dired/filter-files (file)
+  "Filter marked files for supported file types.
+  FILE is a file path to match."
+  (string-match-p tesseract-image-regexp file))
+
+(defun tesseract/dired/marked-to-txt ()
+  "Run Tesseract OCR on marked files, if they are supported."
+  (interactive)
+  (let ((files (dired-get-marked-files
+		nil
+		nil
+		'tesseract/dired/filter-files
+		nil
+		"Non of the selected files are supported.")))
+    (tesseract/ocr-image files)))
+
 (provide 'tesseract)
 ;;tesseract.el ends here
