@@ -1,0 +1,188 @@
+;; -*- lexical-binding: t -*-
++TITLE: Tesseract commands for Emacs
+#+AUTHOR: Sebastian Meisel
+#+DATE: <2023-05-20 Sa>
+#+BABEL: :cache yes
+#+PROPERTY: header-args :tangle tesseract.el :results silent
+#+auto-tangle: yes
+
+* General
+
+** Header
+
+#+BEGIN_SRC emacs-lisp
+;;; tesseract.el --- Use Tesseract for OCR from within Emacs.  -*- coding: utf-8; lexical-binding: t; -*-
+
+;; Copyright © 2023, by Sebastian Meisel
+
+;; Author: Sebastian Meisel <sebastian.meisel@gmail.com>
+;; Version: 0.1
+;; Created:  Mai 20, 2023
+;; Keywords: ocr
+;; Homepage: https://github.com/SebastianMeisel/tesseract.el
+;; Package-Requires: ((emacs "27.1"))
+#+END_SRC
+
+** License
+#+BEGIN_SRC emacs-lisp
+;;; License:
+
+;; This file is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published
+;; by the Free Software Foundation, either version 3 of the License,
+;; or (at your option) any later version.
+;;
+;; This file is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this file.  If not, see <https://www.gnu.org/licenses/>.
+#+END_SRC
+
+** Commentary
+
+#+BEGIN_SRC emacs-lisp
+;;; Commentary
+
+;; This is a package that provides support for OCR using Tesseract from within Emacs.
+;; Tesseract needs to be installed on your system first to use this package.
+
+;; Put tesseract.el in your load-path and add (require 'tesseract) to your .emacs file.
+#+END_SRC
+
+
+
+** Customization
+Define a customization group:
+
+#+BEGIN_SRC emacs-lisp
+;;; Code:
+
+
+;; customization
+(defgroup tesseract nil
+  "Commands to use Tesseract for OCR from within Emacs."
+  :group 'external)
+#+END_SRC
+
+*** Customization for default language
+
+#+BEGIN_SRC emacs-lisp
+(defcustom tesseract/default-language "eng"
+"Default language used for Tesseract OCR. Use tesseract/list-languages to get languages available on your system."
+:group 'tesseract)
+#+END_SRC
+
+*** End of Customization
+
+#+BEGIN_SRC emacs-lisp
+;; functions
+#+END_SRC
+
+
+* Select language for Tesseract
+
+** Get available languages from Tesseract
+
+Use the =--list-langs= parameter of Tesseract to list with languages are available for OCR on the current system.
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/list-languages ()
+  "List available language packages for tesseract."
+  (interactive)
+  (split-string (nth 1 (split-string (shell-command-to-string "tesseract --list-langs") ":" nil))))
+#+END_SRC
+
+
+
+** ERLEDIGT Change currently used language
+CLOSED: [2023-05-25 Do 10:11]
+
+Set a variable that we can change on will.
+
+#+BEGIN_SRC emacs-lisp
+(setq tesseract/current-language tesseract/default-language)
+#+END_SRC
+
+
+Prompt user to select a language from options using completing-read using =tesseract/default-language= as input for options.
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/change-language ()
+  "Change the language based on the options given by tesseract/list-languages."
+  (interactive)
+  (let((options (tesseract/list-languages)))
+    (setq tesseract/current-language (completing-read "Language:" options nil t "eng" 'tesseract/language-history)))) 
+#+END_SRC
+
+
+* Commands for Doc-View-Mode
+
+*** ERLEDIGT OCR current page
+CLOSED: [2023-05-25 Do 10:22]
+
+`tesseract/doc-view/ocr-current-page`  uses Tesseract OCR to extract text from a PNG image in DocView mode. Here's a summary of its functionality:
+
+1. The function retrieves the file path of the current PNG image being viewed in DocView mode.
+2. It sets the desired Tesseract language for OCR.
+3. It creates or switches to a buffer named "*tesseract*" to display the OCR output.
+4. The Tesseract OCR command is executed, passing the image file path and language options.
+5. The extracted text is captured and displayed in the "**tesseract**" buffer.
+
+In summary, this function enables interactive OCR extraction from a PNG image in DocView mode using Tesseract, with the resulting text shown in the "**tesseract**" buffer.
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/doc-view/ocr-current-page ()
+  "Extract text from the current PNG image in DocView mode using Tesseract OCR."
+  (interactive)
+  (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
+	(tesseract-language tesseract/current-language)) 
+    (with-current-buffer (get-buffer-create "*tesseract*")
+      (display-buffer (current-buffer))
+      (call-process  "tesseract"
+		     nil
+		     t
+		     t
+		     current-image
+		     "-"
+		     "-l" tesseract-language))))
+#+END_SRC
+
+*** BEGONNEN OCR whole document
+
+This function is a variation of the last one, but it runs Tesseract on each PNG generated for the current PDF by DocView. They a kept in a temporary directory that we can get by
+=doc-view--current-cache-dir=.
+
+**** ERLEDIGEN How can I increase the density for the preview images?
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/doc-view/ocr-this-pdf ()
+  "Extract text from all pages of the PDF open in DocView mode using Tesseract OCR."
+  (interactive)
+  (let* ((cache-dir (doc-view--current-cache-dir))
+	 (current-pdf (directory-files cache-dir nil "png$"))
+	(tesseract-language tesseract/current-language)) 
+    (with-current-buffer (get-buffer-create "*tesseract*")
+      (display-buffer (current-buffer))
+      (dolist (current-image current-pdf)
+	      (call-process  "tesseract"
+			     nil
+			     t
+			     t
+			     (concat cache-dir current-image)
+			     "-"
+			     "-l" tesseract-language)))))
+#+END_SRC
+
+
+
+* ERLEDIGEN Functions for Dired
+
+* Footer
+
+#+BEGIN_SRC emacs-lisp
+(provide 'tesseract)
+;;tesseract.el ends here
+#+END_SRC
