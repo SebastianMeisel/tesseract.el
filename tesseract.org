@@ -6,6 +6,16 @@
 #+PROPERTY: header-args :tangle tesseract.el :results silent
 #+auto-tangle: yes
 
+* Introduction
+
+This package aims to provide a basic integration of Tesseract in Emacs. For now it provides commands extract text from bitmap PDFs from within DocView. Next step I plan is Dired integration.
+
+It is still in *very* early development. For the moment  I have no instructions for installation, but just this literal programming documentation. Please feel free to give feedback or post issues.
+
+Reach out to me:
+ - sebastian.meisel@gmail.com
+ - @sebasTEAan@emacs.ch
+
 * General
 
 ** Header
