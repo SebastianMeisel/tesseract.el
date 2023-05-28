@@ -106,25 +106,65 @@
 		     "txt"
 		     "quiet"))))
 
+(defun tesseract/ocr-pdf (pdf)
+  "Convert all pages of a PDF to images and process them with Tesseract OCR."
+  (let* ((tesseract-language tesseract/current-language)
+	 (default-directory (make-temp-file "tesseract" t nil)))
+    (with-existing-directory
+      (call-process "convert"
+		    nil
+		    "*convert*"
+		    t
+		    "-density" "300x300"
+		    pdf
+		    "-density" "300x300"
+		    "-colorspace" "RGB"
+		    "pdf-pages.png")
+      (let ((images (directory-files default-directory nil "png$")))
+	(dolist (current-image images)
+	  (call-process  "tesseract"
+			 nil
+			 nil
+			 t
+			 current-image
+			 (car (split-string current-image "\\.[[:alpha:]]+$" t))
+			 "-l" tesseract-language
+			 "txt"
+			 "quiet"))))))
+
 (defconst tesseract-image-regexp
   "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
   "Regular expression for image file types supported by Tesseract (Leptonica).")
 
-(defun tesseract/dired/filter-files (file)
-  "Filter marked files for supported file types.
+(defun tesseract/dired/filter-images (file)
+  "Filter marked files for supported iamge file types.
   FILE is a file path to match."
   (string-match-p tesseract-image-regexp file))
+
+(defun tesseract/dired/filter-pdfs (file)
+  "Filter marked files for pdfs.
+  FILE is a file path to match."
+  (string-match-p "\\.\\(PDF\\|pdf\\)\\'" file))
+
 
 (defun tesseract/dired/marked-to-txt ()
   "Run Tesseract OCR on marked files, if they are supported."
   (interactive)
-  (let ((files (dired-get-marked-files
+  (let ((images (dired-get-marked-files
 		nil
 		nil
-		'tesseract/dired/filter-files
+		'tesseract/dired/filter-images
 		nil
-		"Non of the selected files are supported.")))
-    (tesseract/ocr-image files)))
+		nil))
+	(pdfs (dired-get-marked-files
+		nil
+		nil
+		'tesseract/dired/filter-pdfs
+		nil
+		nil)))
+    (dolist (pdf pdfs)
+      (tesseract/ocr-pdf pdf))
+    (tesseract/ocr-image images)))
 
 (provide 'tesseract)
 ;;tesseract.el ends here
