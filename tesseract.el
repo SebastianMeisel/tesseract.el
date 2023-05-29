@@ -106,8 +106,11 @@
 		     "txt"
 		     "quiet"))))
 
-(defun tesseract/ocr-pdf (pdf)
-  "Convert all pages of a PDF to images and process them with Tesseract OCR."
+(defun tesseract/ocr-pdf (pdf &optional to-pdf)
+  "Convert all pages of a PDF to images and process them with Tesseract OCR.
+
+  PDF is the input file.
+  If TO-PDF is non nil add a text layer to original pdf."
   (let* ((tesseract-language tesseract/current-language)
 	 (default-directory (make-temp-file "tesseract" t nil)))
     (with-existing-directory
@@ -121,7 +124,7 @@
 		    "-colorspace" "RGB"
 		    "pdf-pages.png")
       (let ((images (directory-files default-directory nil "png$"))
-	    (output-file (concat (car(split-string pdf "pdf$" t)) "txt")))
+	    (output-file  (concat (car(split-string pdf "pdf$" t))) "txt"))
 	(with-temp-buffer
 	  (dolist (current-image images)
 	    (call-process  "tesseract"
@@ -129,10 +132,17 @@
 			   t
 			   nil
 			   current-image
-			   "-"
+			   (if to-pdf pdf "-")
 			   "-l" tesseract-language
-			   "quiet"))
-	  (write-file output-file))))))
+			   "quiet"
+			   (if to-pdf "pdf" nil)))
+	  (if to-pdf
+		  (call-process "pdfjam"
+				nil
+				t
+				nil
+				"pdf-pages-{0-9}?.pdf")
+		(write-file output-file)))))))
 
 (defconst tesseract-image-regexp
   "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
