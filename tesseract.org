@@ -188,7 +188,140 @@ This function is a variation of the last one, but it runs Tesseract on each PNG 
 
 
 
-* ERLEDIGEN Functions for Dired
+* BEGONNEN Functions for Dired
+** BEGONNEN Image files
+   Simply run Tesseract on any supported image files. Supported format are:
+
+#+BEGIN_QUOTE
+Tesseract uses the Leptonica library to read images in one of these formats:
+ - PNG - requires libpng, libz
+ - JPEG - requires libjpeg / libjpeg-turbo
+ - TIFF - requires libtiff, libz
+ - JPEG 2000 - requires libopenjp2
+ - GIF - requires libgif (giflib)
+ - WebP (including animated WebP) - requires libwebp
+ - BMP - no library required~*~
+ - PNM - no library required~*~
+ ~* Except Leptonica~
+---   https://github.com/tesseract-ocr/tessdoc/blob/main/InputFormats.md
+#+END_QUOTE
+
+The following function processes a list of images an runs Tesseract on them. For each file a text file with the same base name is created. I use =call-process= because (the asynchronous) =start-process= seems to cause Tesseract to crash, at least on my system. There is probably a work around, that I don't know. Help is welcome. The way it is now, you shouldn't process to many images at a time.
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/ocr-image (images)
+  "Run Tesseract OCR on each image.
+  
+  IMAGES is a list of paths to the images."
+  (let ((tesseract-language tesseract/current-language))
+    (dolist (current-image images)
+      (call-process  "tesseract"
+		     nil
+		     nil
+		     t
+		     current-image
+		     (car (split-string current-image "\\.[[:alpha:]]+$" t))
+		     "-l" tesseract-language
+		     "txt"
+		     "quiet"))))
+#+END_SRC
+
+** ERLEDIGEN Process PDFs
+*** ERLEDIGEN Txt-Output
+
+This function takes a PDF file path as an argument. It uses the 'convert' command from ImageMagick to convert the PDF pages into individual PNG images. The resulting images are then processed using Tesseract OCR, which extracts text from each image. The OCR results are saved in a text file with the same name as the input PDF file, but with a 'txt' extension.
+
+During the process, the 'tesseract-language' variable is set to the value of 'tesseract/current-language'. This determines the language used by Tesseract OCR for character recognition.
+
+The function creates a temporary directory to store the intermediate images generated during the process. It uses the 'make-temp-file' function to create a directory with a unique name. This directory is used as the working directory for executing the external commands.
+
+After the conversion and OCR processing, the extracted text is saved in the output file using the 'write-file' function.
+
+Note that this function assumes the presence of the 'convert' and 'tesseract' commands in the system's PATH.
+
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/ocr-pdf (pdf)
+  "Convert all pages of a PDF to images and process them with Tesseract OCR."
+  (let* ((tesseract-language tesseract/current-language)
+	 (default-directory (make-temp-file "tesseract" t nil)))
+    (with-existing-directory
+      (call-process "convert"
+		    nil
+		    "*convert*"
+		    t
+		    "-density" "300x300"
+		    pdf
+		    "-density" "300x300"
+		    "-colorspace" "RGB"
+		    "pdf-pages.png")
+      (let ((images (directory-files default-directory nil "png$"))
+	    (output-file (concat (car(split-string pdf "pdf$" t)) "txt")))
+	(with-temp-buffer
+	  (dolist (current-image images)
+	    (call-process  "tesseract"
+			   nil
+			   t
+			   nil
+			   current-image
+			   "-"
+			   "-l" tesseract-language
+			   "quiet"))
+	  (write-file output-file))))))
+#+END_SRC
+
+*** ERLEDIGEN Text layer in PDF
+Add a text layer to the existing PDF. Should I add an option to create a new file instead?
+
+*** ERLEDIGEN Org-mode output
+The Idea is to create an Org-mode file, with a heading for each page. Maybe even include images?
+
+** Run Tesseract on marked files
+
+To filter the marked files for supported formats we first need 2 filter functions. I also defined a regexp to match images files against.
+
+#+BEGIN_SRC emacs-lisp
+(defconst tesseract-image-regexp
+  "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
+  "Regular expression for image file types supported by Tesseract (Leptonica).")
+
+(defun tesseract/dired/filter-files (file)
+  "Filter marked files for supported file types.
+  FILE is a file path to match."
+  (string-match-p tesseract-image-regexp file))
+
+(defun tesseract/dired/filter-pdfs (file)
+  "Filter marked files for pdfs.
+  FILE is a file path to match."
+  (string-match-p "\\.\\(PDF\\|pdf\\)\\'" file))
+#+END_SRC
+
+
+I use =dired-get-marked-files= to get the files marked in Dired, using =tesseract/dired/filter-files= to filter for supported file types.
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/dired/marked-to-txt ()
+  "Run Tesseract OCR on marked files, if they are supported.
+ Output to text files with the same base name."
+  (interactive)
+  (let ((images (dired-get-marked-files
+		nil
+		nil
+		'tesseract/dired/filter-images
+		nil
+		nil))
+	(pdfs (dired-get-marked-files
+		nil
+		nil
+		'tesseract/dired/filter-pdfs
+		nil
+		nil)))
+    (dolist (pdf pdfs)
+      (tesseract/ocr-pdf pdf))
+    (tesseract/ocr-image images))
+  (revert-buffer t t t))
+  #+END_SRC
+
 
 * Footer
 
