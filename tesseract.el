@@ -134,11 +134,42 @@
 			   "quiet"))
 	  (write-file output-file))))))
 
+(defun tesseract/ocr-pdf-text-layer (pdf)
+  "Add a text layer to  PDF using Tesseract OCR."
+  (let* ((tesseract-language tesseract/current-language)
+	 (tmp-directory (make-temp-file "tesseract" t nil))
+	 (pdf-pages (concat tmp-directory "/pdf-pages.png")))
+    (call-process "convert"
+		    nil
+		    "*convert*"
+		    t
+		    "-density" "300x300"
+		    pdf
+		    "-density" "300x300"
+		    "-colorspace" "RGB"
+		    pdf-pages)
+      (let ((images (directory-files tmp-directory nil "png$")))
+	(dolist (current-image images)
+	  (let* ((input (concat tmp-directory "/" current-image))
+		 (tmp-pdf-base (concat tmp-directory "/" (car(split-string current-image "\\.png$" t)))))
+	    (call-process  "tesseract"
+			   nil
+			   "*tesseract-output*"
+			   nil
+			   input
+			   tmp-pdf-base 
+			   "-l" tesseract-language
+			   "quiet"
+			   "pdf")))
+	  (shell-command (concat "pdfjam " tmp-directory "/pdf-pages-*.pdf"))
+	  (let ((tmp-pdf-output (car(directory-files "./" nil "pdfjam.pdf$"))))
+	    (rename-file tmp-pdf-output pdf t)))))
+
 (defconst tesseract-image-regexp
   "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
   "Regular expression for image file types supported by Tesseract (Leptonica).")
 
-(defun tesseract/dired/filter-files (file)
+(defun tesseract/dired/filter-images (file)
   "Filter marked files for supported file types.
   FILE is a file path to match."
   (string-match-p tesseract-image-regexp file))
@@ -148,10 +179,12 @@
   FILE is a file path to match."
   (string-match-p "\\.\\(PDF\\|pdf\\)\\'" file))
 
-(defun tesseract/dired/marked-to-txt ()
+(defun tesseract/dired/marked-to-txt (pdf-to-pdf)
   "Run Tesseract OCR on marked files, if they are supported.
- Output to text files with the same base name."
-  (interactive)
+ Output to text files with the same base name.
+
+ Call with C-u prefix to add text layer to selected PDF files instead."
+  (interactive "P")
   (let ((images (dired-get-marked-files
 		nil
 		nil
@@ -165,7 +198,9 @@
 		nil
 		nil)))
     (dolist (pdf pdfs)
-      (tesseract/ocr-pdf pdf))
+      (if pdf-to-pdf
+	  (tesseract/ocr-pdf-text-layer pdf)
+	(tesseract/ocr-pdf pdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
 

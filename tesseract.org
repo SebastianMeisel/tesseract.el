@@ -1,10 +1,10 @@
 ;; -*- lexical-binding: t -*-
-+TITLE: Tesseract commands for Emacs
+
+#+TITLE: Tesseract commands for Emacs
 #+AUTHOR: Sebastian Meisel
 #+DATE: <2023-05-20 Sa>
 #+BABEL: :cache yes
-#+PROPERTY: header-args :tangle tesseract.el :results silent
-#+auto-tangle: yes
+#+PROPERTY: header-args :tangle tesseract.el :results silent auto-tangle: yes
 
 * Introduction
 
@@ -91,7 +91,6 @@ Define a customization group:
 ;; functions
 #+END_SRC
 
-
 * Select language for Tesseract
 
 ** Get available languages from Tesseract
@@ -126,7 +125,6 @@ Prompt user to select a language from options using completing-read using =tesse
   (let((options (tesseract/list-languages)))
     (setq tesseract/current-language (completing-read "Language:" options nil t "eng" 'tesseract/language-history)))) 
 #+END_SRC
-
 
 * Commands for Doc-View-Mode
 
@@ -185,7 +183,6 @@ This function is a variation of the last one, but it runs Tesseract on each PNG 
 			     "-"
 			     "-l" tesseract-language)))))
 #+END_SRC
-
 
 
 * BEGONNEN Functions for Dired
@@ -270,8 +267,53 @@ Note that this function assumes the presence of the 'convert' and 'tesseract' co
 	  (write-file output-file))))))
 #+END_SRC
 
-*** ERLEDIGEN Text layer in PDF
-Add a text layer to the existing PDF. Should I add an option to create a new file instead?
+*** BEGONNEN Text layer in PDF
+
+=tesseract/ocr-pdf-text-layer= enables the addition of a text layer to a PDF file by performing OCR on each page of the PDF using Tesseract OCR.
+
+ - The function takes a single argument pdf, which represents the path to the PDF file to be processed.
+ - Within the function, a temporary directory is created using make-temp-file, and its path is stored in the variable tmp-directory.
+ - The PDF file is converted into individual PNG pages using the convert command-line tool. The resulting images are saved in the pdf-pages file within the temporary directory. The conversion process uses a density of 300x300 pixels per inch and converts the colorspace to RGB.
+ - The directory-files function is used to retrieve a list of image files in the temporary directory with the extension .png. These files represent the converted PDF pages.
+ - The function then iterates over each current-image in the images list. For each image, it performs OCR using the tesseract command-line tool. The input image file, temporary PDF file base name, and the Tesseract language specified by the tesseract-language variable are passed as arguments to the tesseract command.
+ - After processing all the images, the pdfjam command is used to merge the resulting PDF files from the OCR process. The merged PDF is saved as pdf-pages-*.pdf in the temporary directory.
+ - Finally, the resulting merged PDF file is renamed to match the original PDF file name, and the temporary directory is cleaned up.
+ - In summary, this function enables the addition of a text layer to a PDF file by performing OCR on each page of the PDF using Tesseract OCR.
+
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/ocr-pdf-text-layer (pdf)
+  "Add a text layer to  PDF using Tesseract OCR."
+  (let* ((tesseract-language tesseract/current-language)
+	 (tmp-directory (make-temp-file "tesseract" t nil))
+	 (pdf-pages (concat tmp-directory "/pdf-pages.png")))
+    (call-process "convert"
+		    nil
+		    "*convert*"
+		    t
+		    "-density" "300x300"
+		    pdf
+		    "-density" "300x300"
+		    "-colorspace" "RGB"
+		    pdf-pages)
+      (let ((images (directory-files tmp-directory nil "png$")))
+	(dolist (current-image images)
+	  (let* ((input (concat tmp-directory "/" current-image))
+		 (tmp-pdf-base (concat tmp-directory "/" (car(split-string current-image "\\.png$" t)))))
+	    (call-process  "tesseract"
+			   nil
+			   "*tesseract-output*"
+			   nil
+			   input
+			   tmp-pdf-base 
+			   "-l" tesseract-language
+			   "quiet"
+			   "pdf")))
+	  (shell-command (concat "pdfjam " tmp-directory "/pdf-pages-*.pdf"))
+	  (let ((tmp-pdf-output (car(directory-files "./" nil "pdfjam.pdf$"))))
+	    (rename-file tmp-pdf-output pdf t)))))
+#+END_SRC
+
 
 *** ERLEDIGEN Org-mode output
 The Idea is to create an Org-mode file, with a heading for each page. Maybe even include images?
@@ -297,13 +339,25 @@ To filter the marked files for supported formats we first need 2 filter function
 #+END_SRC
 
 
-I use =dired-get-marked-files= to get the files marked in Dired, using =tesseract/dired/filter-files= to filter for supported file types.
+=dired-get-marked-files= enables batch processing of marked files in a dired buffer using the Tesseract OCR library, either extracting text from images or adding a text layer to PDF files, depending on the provided argument.
+
+ - The function is interactive, which means it can be invoked directly by the user.
+ - It takes a single optional argument pdf-to-pdf, which is provided by the user when the command is called. If called with a C-u prefix (e.g., C-u M-x tesseract/dired/marked-to-txt), it adds a text layer to selected PDF files instead of performing OCR on them.
+ - The function first retrieves the marked files in the current dired buffer that satisfy certain filtering criteria. It collects two sets of files: images using the filter function tesseract/dired/filter-images, and pdfs using the filter function tesseract/dired/filter-pdfs.
+ - It then iterates over each pdf in the pdfs list. If pdf-to-pdf is t, it calls the function tesseract/ocr-pdf-text-layer on the PDF file to add a text layer. Otherwise, it calls tesseract/ocr-pdf to perform OCR on the PDF file.
+ - After processing the PDF files, it calls tesseract/ocr-image on the images list to perform OCR on the images.
+ - Finally, it reverts the dired buffer to reflect any changes made to the files, using (revert-buffer t t t).
+
+
+
 
 #+BEGIN_SRC emacs-lisp
-(defun tesseract/dired/marked-to-txt ()
+(defun tesseract/dired/marked-to-txt (pdf-to-pdf)
   "Run Tesseract OCR on marked files, if they are supported.
- Output to text files with the same base name."
-  (interactive)
+ Output to text files with the same base name.
+
+ Call with C-u prefix to add text layer to selected PDF files instead."
+  (interactive "P")
   (let ((images (dired-get-marked-files
 		nil
 		nil
@@ -317,7 +371,9 @@ I use =dired-get-marked-files= to get the files marked in Dired, using =tesserac
 		nil
 		nil)))
     (dolist (pdf pdfs)
-      (tesseract/ocr-pdf pdf))
+      (if pdf-to-pdf
+	  (tesseract/ocr-pdf-text-layer pdf)
+	(tesseract/ocr-pdf pdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
   #+END_SRC
