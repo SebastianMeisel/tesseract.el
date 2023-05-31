@@ -58,6 +58,8 @@
   (let((options (tesseract/list-languages)))
     (setq tesseract/current-language (completing-read "Language:" options nil t "eng" 'tesseract/language-history))))
 
+(require 'doc-view)
+
 (defun tesseract/doc-view/ocr-current-page ()
   "Extract text from the current PNG image in DocView mode using Tesseract OCR."
   (interactive)
@@ -89,6 +91,8 @@
 			     (concat cache-dir current-image)
 			     "-"
 			     "-l" tesseract-language)))))
+
+(require 'dired)
 
 (defun tesseract/ocr-image (images)
   "Run Tesseract OCR on each image.
@@ -169,7 +173,7 @@
   "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
   "Regular expression for image file types supported by Tesseract (Leptonica).")
 
-(defun tesseract/dired/filter-images (file)
+(defun tesseract/dired/filter-files (file)
   "Filter marked files for supported file types.
   FILE is a file path to match."
   (string-match-p tesseract-image-regexp file))

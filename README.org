@@ -1,1 +1,90 @@
-tesseract.org
+* Tesseract.el
+
+This package aims to provide an integration of [[https://github.com/tesseract-ocr/tesseract][Tesseract OCR]] in Emacs.
+The packages is still in early development and by far not feature complete nor free of bugs. I would however appreciate if you test it and give feedback to me, either directly over GitHub or via:
+
+ - sebastian.meisel@gmail.com
+ - @sebasTEAan@emacs.ch
+
+* Prerequisites 
+
+You need of cause =Tesseract= installed on your system with the language packages you need. For PDF support you also need:
+
+ - =ImageMagick=
+ - =pdfjam=
+
+At the moment there is no check if the requirement are met, so you get no proper error messages.
+ 
+* Installation
+
+Either download tesseract.el to a directory in your load path and put
+
+#+BEGIN_SRC emacs-lisp
+(require 'tesseract)
+#+END_SRC
+
+in your Emacs configuration file or if you prefer =use-package=:
+
+#+BEGIN_SRC emacs-lisp
+(use-package tesseract
+  :quelpa (tesseract
+	   :fetcher github
+	   :repo SebastianMeisel/tesseract.el)
+  :ensure t)
+#+END_SRC
+
+Tesseract.el provides no keybindings. I recommend the following configuration:
+
+
+#+BEGIN_SRC emacs-lisp
+(use-package tesseract
+  :quelpa (tesseract
+	   :fetcher github
+	   :repo SebastianMeisel/tesseract.el)
+  :ensure t
+  :bind (:map dired-mode-map
+	      ("T" . tesseract/dired/marked-to-txt)
+	      :map doc-view-mode-map
+	      ("T p" . tesseract/doc-view/ocr-current-page)
+	      ("T a" . tesseract/doc-view/ocr-this-pdf)))
+#+END_SRC
+
+* Usage
+
+At the moment the package provides integration in Dired and Doc-View.
+
+** Dired  integration
+For Dired there is one command: =tesseract/dired/marked-to-txt= (Bound to ~T~ in the example configuration). 
+As the name suggests it runs =Tesseract= on each file that is marked (if it is supported) and creates a text file with the same base name. Supported file types are:
+
+#+BEGIN_QUOTE
+Tesseract uses the Leptonica library to read images in one of these formats:
+ - PNG - requires libpng, libz
+ - JPEG - requires libjpeg / libjpeg-turbo
+ - TIFF - requires libtiff, libz
+ - JPEG 2000 - requires libopenjp2
+ - GIF - requires libgif (giflib)
+ - WebP (including animated WebP) - requires libwebp
+ - BMP - no library required~*~
+ - PNM - no library required~*~
+ ~* Except Leptonica~
+---   https://github.com/tesseract-ocr/tessdoc/blob/main/InputFormats.md
+#+END_QUOTE
+
+PDF files are also supported by =Tesseract.el=. They are converted by =ImageMagick=.
+
+If you run =tesseract/dired/marked-to-txt= with the ~C-u~ prefix (e.g. ~C-u T~), for all select PDF files a text layer is created in the original PDF instead of a text file.
+
+** DocView integration
+
+In =DocView= you have two commands:
+
+ 1) tesseract/doc-view/ocr-current-page (~T p~): Run =Tesseract= on the current page only.
+ 2) tesseract/doc-view/ocr-this-pdf (~T a~): Run =Tesseract= on the whole PDF file only. This only works in a PDF files and other situations are not handled correctly at the moment.
+
+
+
+
+# Local Variables:
+# jinx-languages: "en_US"
+# End:
