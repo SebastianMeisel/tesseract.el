@@ -40,8 +40,10 @@
   :group 'external)
 
 (defcustom tesseract/default-language "eng"
-"Default language used for Tesseract OCR. Use tesseract/list-languages to get languages available on your system."
-:group 'tesseract)
+  "Default language used for Tesseract OCR.
+Use tesseract/list-languages to get languages available on your system."
+  :group 'tesseract
+  :type 'string)
 
 ;; functions
 
