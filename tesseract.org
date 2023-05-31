@@ -17,7 +17,6 @@ Reach out to me:
  - @sebasTEAan@emacs.ch
 
 * General
-
 ** Header
 
 #+BEGIN_SRC emacs-lisp
@@ -63,7 +62,6 @@ Reach out to me:
 #+END_SRC
 
 
-
 ** Customization
 Define a customization group:
 
@@ -92,7 +90,6 @@ Define a customization group:
 #+END_SRC
 
 * Select language for Tesseract
-
 ** Get available languages from Tesseract
 
 Use the =--list-langs= parameter of Tesseract to list with languages are available for OCR on the current system.
@@ -105,9 +102,8 @@ Use the =--list-langs= parameter of Tesseract to list with languages are availab
 #+END_SRC
 
 
-
-** ERLEDIGT Change currently used language
-CLOSED: [2023-05-25 Do 10:11]
+** DONE Change currently used language
+CLOSED: [2023-05-31 Wed 21:44]
 
 Set a variable that we can change on will.
 
@@ -128,8 +124,15 @@ Prompt user to select a language from options using completing-read using =tesse
 
 * Commands for Doc-View-Mode
 
-*** ERLEDIGT OCR current page
-CLOSED: [2023-05-25 Do 10:22]
+First we need to require =doc-view= because we use some of it's functions:
+
+#+BEGIN_SRC emacs-lisp
+(require 'doc-view)
+#+END_SRC
+
+
+*** DONE OCR current page
+CLOSED: [2023-05-31 Wed 21:44]
 
 `tesseract/doc-view/ocr-current-page`  uses Tesseract OCR to extract text from a PNG image in DocView mode. Here's a summary of its functionality:
 
@@ -158,12 +161,12 @@ In summary, this function enables interactive OCR extraction from a PNG image in
 		     "-l" tesseract-language))))
 #+END_SRC
 
-*** BEGONNEN OCR whole document
+*** WIP OCR whole document
 
 This function is a variation of the last one, but it runs Tesseract on each PNG generated for the current PDF by DocView. They a kept in a temporary directory that we can get by
 =doc-view--current-cache-dir=.
 
-**** ERLEDIGEN How can I increase the density for the preview images?
+**** TODO How can I increase the density for the preview images?
 
 #+BEGIN_SRC emacs-lisp
 (defun tesseract/doc-view/ocr-this-pdf ()
@@ -184,9 +187,15 @@ This function is a variation of the last one, but it runs Tesseract on each PNG 
 			     "-l" tesseract-language)))))
 #+END_SRC
 
+* WIP Functions for Dired
 
-* BEGONNEN Functions for Dired
-** BEGONNEN Image files
+First again we need to require =dired= because we use some of it's functions:
+
+#+BEGIN_SRC emacs-lisp
+(require 'dired)
+#+END_SRC
+
+** WIP Image files
    Simply run Tesseract on any supported image files. Supported format are:
 
 #+BEGIN_QUOTE
@@ -223,7 +232,7 @@ The following function processes a list of images an runs Tesseract on them. For
 		     "quiet"))))
 #+END_SRC
 
-** ERLEDIGEN Process PDFs
+** WIP Process PDFs
 *** ERLEDIGEN Txt-Output
 
 This function takes a PDF file path as an argument. It uses the 'convert' command from ImageMagick to convert the PDF pages into individual PNG images. The resulting images are then processed using Tesseract OCR, which extracts text from each image. The OCR results are saved in a text file with the same name as the input PDF file, but with a 'txt' extension.
@@ -267,7 +276,7 @@ Note that this function assumes the presence of the 'convert' and 'tesseract' co
 	  (write-file output-file))))))
 #+END_SRC
 
-*** BEGONNEN Text layer in PDF
+*** Text layer in PDF
 
 =tesseract/ocr-pdf-text-layer= enables the addition of a text layer to a PDF file by performing OCR on each page of the PDF using Tesseract OCR.
 
@@ -318,7 +327,8 @@ Note that this function assumes the presence of the 'convert' and 'tesseract' co
 *** ERLEDIGEN Org-mode output
 The Idea is to create an Org-mode file, with a heading for each page. Maybe even include images?
 
-** Run Tesseract on marked files
+** DONE Run Tesseract on marked files
+CLOSED: [2023-05-31 Wed 21:48]
 
 To filter the marked files for supported formats we first need 2 filter functions. I also defined a regexp to match images files against.
 
@@ -385,3 +395,7 @@ To filter the marked files for supported formats we first need 2 filter function
 (provide 'tesseract)
 ;;tesseract.el ends here
 #+END_SRC
+
+# Local Variables:
+# jinx-languages: "en_US"
+# End:
