@@ -89,6 +89,21 @@ Define a customization group:
 ;; functions
 #+END_SRC
 
+* Check Prerequisites
+
+To give useful error messages I check for the prerequisites and save the value in constants. 
+
+#+BEGIN_SRC emacs-lisp
+(defconst tesseract-installed-p (if (executable-find "tesseract") t nil)
+  "Returns true if Tesseract is installed on the system.")
+
+(defconst convert-installed-p (if (executable-find "convert") t nil)
+  "Returns true if convert from the ImageMagick package is installed on the system.")
+
+(defconst pdfjam-installed-p (if (executable-find "pdfjam") t nil)
+  "Returns true if pdfjam is installed on the system.")
+#+END_SRC
+
 * Select language for Tesseract
 ** Get available languages from Tesseract
 
@@ -148,6 +163,8 @@ In summary, this function enables interactive OCR extraction from a PNG image in
 (defun tesseract/doc-view/ocr-current-page ()
   "Extract text from the current PNG image in DocView mode using Tesseract OCR."
   (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	(tesseract-language tesseract/current-language)) 
     (with-current-buffer (get-buffer-create "*tesseract*")
@@ -172,6 +189,8 @@ This function is a variation of the last one, but it runs Tesseract on each PNG 
 (defun tesseract/doc-view/ocr-this-pdf ()
   "Extract text from all pages of the PDF open in DocView mode using Tesseract OCR."
   (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let* ((cache-dir (doc-view--current-cache-dir))
 	 (current-pdf (directory-files cache-dir nil "png$"))
 	(tesseract-language tesseract/current-language)) 
@@ -368,6 +387,8 @@ To filter the marked files for supported formats we first need 2 filter function
 
  Call with C-u prefix to add text layer to selected PDF files instead."
   (interactive "P")
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let ((images (dired-get-marked-files
 		nil
 		nil
@@ -381,9 +402,13 @@ To filter the marked files for supported formats we first need 2 filter function
 		nil
 		nil)))
     (dolist (pdf pdfs)
+      (when (not convert-installed-p)
+	(error "ImageMagick is not installed on your system."))
       (if pdf-to-pdf
+	  (when (not pdfjam-installed-p)
+	    (error "Pdfjam is not installed on your system."))
 	  (tesseract/ocr-pdf-text-layer pdf)
-	(tesseract/ocr-pdf pdf)))
+	(tesseract/ocr-pdf tpdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
   #+END_SRC

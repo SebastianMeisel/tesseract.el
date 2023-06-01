@@ -1,3 +1,4 @@
 /tesseract-test.el
 *~
 *.txt
+/tesseract.elc

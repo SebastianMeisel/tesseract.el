@@ -12,8 +12,6 @@ You need of cause =Tesseract= installed on your system with the language package
 
  - =ImageMagick=
  - =pdfjam=
-
-At the moment there is no check if the requirement are met, so you get no proper error messages.
  
 * Installation
 
