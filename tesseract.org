@@ -89,6 +89,21 @@ Define a customization group:
 ;; functions
 #+END_SRC
 
+* Check Prerequisites
+
+To give useful error messages I check for the prerequisites and save the value in constants. 
+
+#+BEGIN_SRC emacs-lisp
+(defconst tesseract-installed-p (if (executable-find "tesseract") t nil)
+  "Returns true if Tesseract is installed on the system.")
+
+(defconst convert-installed-p (if (executable-find "convert") t nil)
+  "Returns true if convert from the ImageMagick package is installed on the system.")
+
+(defconst pdfjam-installed-p (if (executable-find "pdfjam") t nil)
+  "Returns true if pdfjam is installed on the system.")
+#+END_SRC
+
 * Select language for Tesseract
 ** Get available languages from Tesseract
 
@@ -130,7 +145,6 @@ First we need to require =doc-view= because we use some of it's functions:
 (require 'doc-view)
 #+END_SRC
 
-
 *** DONE OCR current page
 CLOSED: [2023-05-31 Wed 21:44]
 
@@ -148,9 +162,12 @@ In summary, this function enables interactive OCR extraction from a PNG image in
 (defun tesseract/doc-view/ocr-current-page ()
   "Extract text from the current PNG image in DocView mode using Tesseract OCR."
   (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	(tesseract-language tesseract/current-language)) 
     (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
       (display-buffer (current-buffer))
       (call-process  "tesseract"
 		     nil
@@ -161,21 +178,59 @@ In summary, this function enables interactive OCR extraction from a PNG image in
 		     "-l" tesseract-language))))
 #+END_SRC
 
+*** TODO OCR current slice
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/doc-view/ocr-current-slice ()
+  "Extract text from the selected slice of the current PNG image
+  in DocView mode using Tesseract OCR."
+  (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
+  (when (not convert-installed-p)
+    (error "ImageMagick is not installed on your system."))
+  (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
+	 (slice (doc-view-current-slice))
+	 (x (int-to-string (nth 0 slice)))
+	 (y (int-to-string (nth 1 slice)))
+         (w (int-to-string (nth 2 slice)))
+	 (h (int-to-string (nth 3 slice)))
+	 (temp-image (make-temp-file "slice" nil ".png"))
+	 (tesseract-language tesseract/current-language))
+    (shell-command (concat "convert "
+			   current-image
+			   " -crop " w "x" h "+" x "+" y
+			   " -colorspace RGB "
+			   temp-image))
+    (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
+      (display-buffer (current-buffer))
+      (call-process  "tesseract"
+		     nil
+		     t
+		     t
+		     temp-image
+		     "-"
+		     "-l" tesseract-language))))
+#+END_SRC
+
 *** WIP OCR whole document
 
 This function is a variation of the last one, but it runs Tesseract on each PNG generated for the current PDF by DocView. They a kept in a temporary directory that we can get by
 =doc-view--current-cache-dir=.
 
-**** TODO How can I increase the density for the preview images?
 
 #+BEGIN_SRC emacs-lisp
 (defun tesseract/doc-view/ocr-this-pdf ()
   "Extract text from all pages of the PDF open in DocView mode using Tesseract OCR."
   (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let* ((cache-dir (doc-view--current-cache-dir))
 	 (current-pdf (directory-files cache-dir nil "png$"))
 	(tesseract-language tesseract/current-language)) 
     (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
       (display-buffer (current-buffer))
       (dolist (current-image current-pdf)
 	      (call-process  "tesseract"
@@ -186,6 +241,8 @@ This function is a variation of the last one, but it runs Tesseract on each PNG 
 			     "-"
 			     "-l" tesseract-language)))))
 #+END_SRC
+
+**** TODO How can I increase the density for the preview images?
 
 * WIP Functions for Dired
 
@@ -368,6 +425,8 @@ To filter the marked files for supported formats we first need 2 filter function
 
  Call with C-u prefix to add text layer to selected PDF files instead."
   (interactive "P")
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let ((images (dired-get-marked-files
 		nil
 		nil
@@ -381,13 +440,16 @@ To filter the marked files for supported formats we first need 2 filter function
 		nil
 		nil)))
     (dolist (pdf pdfs)
+      (when (not convert-installed-p)
+	(error "ImageMagick is not installed on your system."))
       (if pdf-to-pdf
+	  (when (not pdfjam-installed-p)
+	    (error "Pdfjam is not installed on your system."))
 	  (tesseract/ocr-pdf-text-layer pdf)
-	(tesseract/ocr-pdf pdf)))
+	(tesseract/ocr-pdf tpdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
   #+END_SRC
-
 
 * Footer
 
