@@ -145,7 +145,6 @@ First we need to require =doc-view= because we use some of it's functions:
 (require 'doc-view)
 #+END_SRC
 
-
 *** DONE OCR current page
 CLOSED: [2023-05-31 Wed 21:44]
 
@@ -168,6 +167,7 @@ In summary, this function enables interactive OCR extraction from a PNG image in
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	(tesseract-language tesseract/current-language)) 
     (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
       (display-buffer (current-buffer))
       (call-process  "tesseract"
 		     nil
@@ -178,12 +178,47 @@ In summary, this function enables interactive OCR extraction from a PNG image in
 		     "-l" tesseract-language))))
 #+END_SRC
 
+*** TODO OCR current slice
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/doc-view/ocr-current-slice ()
+  "Extract text from the selected slice of the current PNG image
+  in DocView mode using Tesseract OCR."
+  (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
+  (when (not convert-installed-p)
+    (error "ImageMagick is not installed on your system."))
+  (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
+	 (slice (doc-view-current-slice))
+	 (x (int-to-string (nth 0 slice)))
+	 (y (int-to-string (nth 1 slice)))
+         (w (int-to-string (nth 2 slice)))
+	 (h (int-to-string (nth 3 slice)))
+	 (temp-image (make-temp-file "slice" nil ".png"))
+	 (tesseract-language tesseract/current-language))
+    (shell-command (concat "convert "
+			   current-image
+			   " -crop " w "x" h "+" x "+" y
+			   " -colorspace RGB "
+			   temp-image))
+    (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
+      (display-buffer (current-buffer))
+      (call-process  "tesseract"
+		     nil
+		     t
+		     t
+		     temp-image
+		     "-"
+		     "-l" tesseract-language))))
+#+END_SRC
+
 *** WIP OCR whole document
 
 This function is a variation of the last one, but it runs Tesseract on each PNG generated for the current PDF by DocView. They a kept in a temporary directory that we can get by
 =doc-view--current-cache-dir=.
 
-**** TODO How can I increase the density for the preview images?
 
 #+BEGIN_SRC emacs-lisp
 (defun tesseract/doc-view/ocr-this-pdf ()
@@ -195,6 +230,7 @@ This function is a variation of the last one, but it runs Tesseract on each PNG 
 	 (current-pdf (directory-files cache-dir nil "png$"))
 	(tesseract-language tesseract/current-language)) 
     (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
       (display-buffer (current-buffer))
       (dolist (current-image current-pdf)
 	      (call-process  "tesseract"
@@ -205,6 +241,8 @@ This function is a variation of the last one, but it runs Tesseract on each PNG 
 			     "-"
 			     "-l" tesseract-language)))))
 #+END_SRC
+
+**** TODO How can I increase the density for the preview images?
 
 * WIP Functions for Dired
 
@@ -412,7 +450,6 @@ To filter the marked files for supported formats we first need 2 filter function
     (tesseract/ocr-image images))
   (revert-buffer t t t))
   #+END_SRC
-
 
 * Footer
 

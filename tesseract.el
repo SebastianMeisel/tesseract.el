@@ -40,12 +40,19 @@
   :group 'external)
 
 (defcustom tesseract/default-language "eng"
-  "Default language used for Tesseract OCR.
-Use tesseract/list-languages to get languages available on your system."
-  :group 'tesseract
-  :type 'string)
+"Default language used for Tesseract OCR. Use tesseract/list-languages to get languages available on your system."
+:group 'tesseract)
 
 ;; functions
+
+(defconst tesseract-installed-p (if (executable-find "tesseract") t nil)
+  "Returns true if Tesseract is installed on the system.")
+
+(defconst convert-installed-p (if (executable-find "convert") t nil)
+  "Returns true if convert from the ImageMagick package is installed on the system.")
+
+(defconst pdfjam-installed-p (if (executable-find "pdfjam") t nil)
+  "Returns true if pdfjam is installed on the system.")
 
 (defun tesseract/list-languages ()
   "List available language packages for tesseract."
@@ -65,9 +72,12 @@ Use tesseract/list-languages to get languages available on your system."
 (defun tesseract/doc-view/ocr-current-page ()
   "Extract text from the current PNG image in DocView mode using Tesseract OCR."
   (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	(tesseract-language tesseract/current-language)) 
     (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
       (display-buffer (current-buffer))
       (call-process  "tesseract"
 		     nil
@@ -77,13 +87,48 @@ Use tesseract/list-languages to get languages available on your system."
 		     "-"
 		     "-l" tesseract-language))))
 
+(defun tesseract/doc-view/ocr-current-slice ()
+  "Extract text from the selected slice of the current PNG image
+  in DocView mode using Tesseract OCR."
+  (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
+  (when (not convert-installed-p)
+    (error "ImageMagick is not installed on your system."))
+  (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
+	 (slice (doc-view-current-slice))
+	 (x (int-to-string (nth 0 slice)))
+	 (y (int-to-string (nth 1 slice)))
+         (w (int-to-string (nth 2 slice)))
+	 (h (int-to-string (nth 3 slice)))
+	 (temp-image (make-temp-file "slice" nil ".png"))
+	 (tesseract-language tesseract/current-language))
+    (shell-command (concat "convert "
+			   current-image
+			   " -crop " w "x" h "+" x "+" y
+			   " -colorspace RGB "
+			   temp-image))
+    (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
+      (display-buffer (current-buffer))
+      (call-process  "tesseract"
+		     nil
+		     t
+		     t
+		     temp-image
+		     "-"
+		     "-l" tesseract-language))))
+
 (defun tesseract/doc-view/ocr-this-pdf ()
   "Extract text from all pages of the PDF open in DocView mode using Tesseract OCR."
   (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let* ((cache-dir (doc-view--current-cache-dir))
 	 (current-pdf (directory-files cache-dir nil "png$"))
 	(tesseract-language tesseract/current-language)) 
     (with-current-buffer (get-buffer-create "*tesseract*")
+      (erase-buffer)
       (display-buffer (current-buffer))
       (dolist (current-image current-pdf)
 	      (call-process  "tesseract"
@@ -191,6 +236,8 @@ Use tesseract/list-languages to get languages available on your system."
 
  Call with C-u prefix to add text layer to selected PDF files instead."
   (interactive "P")
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
   (let ((images (dired-get-marked-files
 		nil
 		nil
@@ -204,9 +251,13 @@ Use tesseract/list-languages to get languages available on your system."
 		nil
 		nil)))
     (dolist (pdf pdfs)
+      (when (not convert-installed-p)
+	(error "ImageMagick is not installed on your system."))
       (if pdf-to-pdf
+	  (when (not pdfjam-installed-p)
+	    (error "Pdfjam is not installed on your system."))
 	  (tesseract/ocr-pdf-text-layer pdf)
-	(tesseract/ocr-pdf pdf)))
+	(tesseract/ocr-pdf tpdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
 
