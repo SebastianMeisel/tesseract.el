@@ -195,11 +195,11 @@ In summary, this function enables interactive OCR extraction from a PNG image in
     (error "ImageMagick is not installed on your system."))
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	 (slice (doc-view-current-slice))
+	 (resolution (int-to-string doc-view-resolution))
 	 (x (int-to-string (nth 0 slice)))
 	 (y (int-to-string (nth 1 slice)))
          (w (int-to-string (nth 2 slice)))
 	 (h (int-to-string (nth 3 slice)))
-	 (resolution (int-to-string doc-view-resolution))
 	 (temp-image (make-temp-file "slice" nil ".png"))
 	 (tesseract-language tesseract/current-language))
     (shell-command (concat "convert "
