@@ -82,7 +82,7 @@ If you run =tesseract/dired/marked-to-txt= with the ~C-u~ prefix (e.g. ~C-u T~),
 In =DocView= you have two commands:
 
  1) tesseract/doc-view/ocr-current-page (~T p~): Run =Tesseract= on the current page only.
- 2) tesseract/doc-view/ocr-current-slice (~T c~): Run =Tesseract= on the slice of the current page, that is currently selected. You can select a slice in DocView by pressing ~c m~ and selecting a region of the current page with the mouse. See: [[info:Emacs#Document View][Info: Document View]].
+ 2) tesseract/doc-view/ocr-current-slice (~T s~): Run =Tesseract= on the slice of the current page, that is currently selected. You can select a slice in DocView by pressing ~c m~ and selecting a region of the current page with the mouse. See: [[info:Emacs#Document View][Info: Document View]].
  3) tesseract/doc-view/ocr-this-pdf (~T a~): Run =Tesseract= on the whole PDF file only. This only works in a PDF files and other situations are not handled correctly at the moment.
 
 # Local Variables:
