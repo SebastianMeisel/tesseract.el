@@ -31,7 +31,8 @@ in your Emacs configuration file or if you prefer =use-package=:
   :ensure t)
 #+END_SRC
 
-Tesseract.el provides no keybindings. I recommend the following configuration:
+Tesseract.el provides no keybindings. I recommend the following configuration, that
+also enhances the image resolution used by DocView.
 
 
 #+BEGIN_SRC emacs-lisp
@@ -40,6 +41,8 @@ Tesseract.el provides no keybindings. I recommend the following configuration:
 	   :fetcher github
 	   :repo SebastianMeisel/tesseract.el)
   :ensure t
+  :custom
+  (doc-view-resolution 200)
   :bind (:map dired-mode-map
 	      ("T" . tesseract/dired/marked-to-txt)
 	      :map doc-view-mode-map

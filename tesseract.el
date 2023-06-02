@@ -40,8 +40,10 @@
   :group 'external)
 
 (defcustom tesseract/default-language "eng"
-"Default language used for Tesseract OCR. Use tesseract/list-languages to get languages available on your system."
-:group 'tesseract)
+"Default language used for Tesseract OCR.
+ Use tesseract/list-languages to get languages available on your system."
+:group 'tesseract
+:type 'string)
 
 ;; functions
 
@@ -59,7 +61,9 @@
   (interactive)
   (split-string (nth 1 (split-string (shell-command-to-string "tesseract --list-langs") ":" nil))))
 
-(setq tesseract/current-language tesseract/default-language)
+(defvar tesseract/current-language tesseract/default-language
+  "Language currently used for Tesseract OCR.
+   Should only be changed use tesseract/change-language")
 
 (defun tesseract/change-language ()
   "Change the language based on the options given by tesseract/list-languages."
@@ -257,7 +261,7 @@
 	  (when (not pdfjam-installed-p)
 	    (error "Pdfjam is not installed on your system."))
 	  (tesseract/ocr-pdf-text-layer pdf)
-	(tesseract/ocr-pdf tpdf)))
+	(tesseract/ocr-pdf pdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
 
