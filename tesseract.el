@@ -40,8 +40,10 @@
   :group 'external)
 
 (defcustom tesseract/default-language "eng"
-"Default language used for Tesseract OCR. Use tesseract/list-languages to get languages available on your system."
-:group 'tesseract)
+"Default language used for Tesseract OCR.
+ Use tesseract/list-languages to get languages available on your system."
+:group 'tesseract
+:type 'string)
 
 ;; functions
 
@@ -59,7 +61,9 @@
   (interactive)
   (split-string (nth 1 (split-string (shell-command-to-string "tesseract --list-langs") ":" nil))))
 
-(setq tesseract/current-language tesseract/default-language)
+(defvar tesseract/current-language tesseract/default-language
+  "Language currently used for Tesseract OCR.
+   Should only be changed use tesseract/change-language")
 
 (defun tesseract/change-language ()
   "Change the language based on the options given by tesseract/list-languages."
@@ -97,10 +101,11 @@
     (error "ImageMagick is not installed on your system."))
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	 (slice (doc-view-current-slice))
-	 (x (int-to-string (nth 0 slice)))
-	 (y (int-to-string (nth 1 slice)))
-         (w (int-to-string (nth 2 slice)))
-	 (h (int-to-string (nth 3 slice)))
+	 (scale 1);;(/ doc-view-resolution 100))
+	 (x (int-to-string (/(nth 0 slice) scale)))
+	 (y (int-to-string (/(nth 1 slice) scale)))
+         (w (int-to-string (/(nth 2 slice) scale)))
+	 (h (int-to-string (/(nth 3 slice) scale)))
 	 (temp-image (make-temp-file "slice" nil ".png"))
 	 (tesseract-language tesseract/current-language))
     (shell-command (concat "convert "
@@ -257,7 +262,7 @@
 	  (when (not pdfjam-installed-p)
 	    (error "Pdfjam is not installed on your system."))
 	  (tesseract/ocr-pdf-text-layer pdf)
-	(tesseract/ocr-pdf tpdf)))
+	(tesseract/ocr-pdf pdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
 

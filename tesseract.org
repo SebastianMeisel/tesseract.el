@@ -79,8 +79,10 @@ Define a customization group:
 
 #+BEGIN_SRC emacs-lisp
 (defcustom tesseract/default-language "eng"
-"Default language used for Tesseract OCR. Use tesseract/list-languages to get languages available on your system."
-:group 'tesseract)
+"Default language used for Tesseract OCR.
+ Use tesseract/list-languages to get languages available on your system."
+:group 'tesseract
+:type 'string)
 #+END_SRC
 
 *** End of Customization
@@ -123,7 +125,9 @@ CLOSED: [2023-05-31 Wed 21:44]
 Set a variable that we can change on will.
 
 #+BEGIN_SRC emacs-lisp
-(setq tesseract/current-language tesseract/default-language)
+(defvar tesseract/current-language tesseract/default-language
+  "Language currently used for Tesseract OCR.
+   Should only be changed use tesseract/change-language")
 #+END_SRC
 
 
@@ -191,6 +195,7 @@ In summary, this function enables interactive OCR extraction from a PNG image in
     (error "ImageMagick is not installed on your system."))
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	 (slice (doc-view-current-slice))
+	 (resolution (int-to-string doc-view-resolution))
 	 (x (int-to-string (nth 0 slice)))
 	 (y (int-to-string (nth 1 slice)))
          (w (int-to-string (nth 2 slice)))
@@ -198,8 +203,10 @@ In summary, this function enables interactive OCR extraction from a PNG image in
 	 (temp-image (make-temp-file "slice" nil ".png"))
 	 (tesseract-language tesseract/current-language))
     (shell-command (concat "convert "
+			   " -density " resolution " "
 			   current-image
 			   " -crop " w "x" h "+" x "+" y
+			   " -density " resolution
 			   " -colorspace RGB "
 			   temp-image))
     (with-current-buffer (get-buffer-create "*tesseract*")
@@ -446,7 +453,7 @@ To filter the marked files for supported formats we first need 2 filter function
 	  (when (not pdfjam-installed-p)
 	    (error "Pdfjam is not installed on your system."))
 	  (tesseract/ocr-pdf-text-layer pdf)
-	(tesseract/ocr-pdf tpdf)))
+	(tesseract/ocr-pdf pdf)))
     (tesseract/ocr-image images))
   (revert-buffer t t t))
   #+END_SRC
