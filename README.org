@@ -31,9 +31,12 @@ in your Emacs configuration file or if you prefer =use-package=:
   :ensure t)
 #+END_SRC
 
+** Customization 
+
 Tesseract.el provides no keybindings. I recommend the following configuration.
 =doc-view-scale-internally= should be set to nil. Else some features might not work as expected. 
 
+If you use a language other then English (which is the default) you can customize the default language. 
 
 #+BEGIN_SRC emacs-lisp
 (use-package tesseract
@@ -43,21 +46,35 @@ Tesseract.el provides no keybindings. I recommend the following configuration.
   :ensure t
   :custom
   (doc-view-scale-internally nil)
+;; (tesseract/default-language "deu") 
   :bind (:map dired-mode-map
-	      ("T" . tesseract/dired/marked-to-txt)
+	      ("T t" . tesseract/dired/marked-to-txt)
+	      ("T c" . tesseract/dired/combine-marked-to-pdf)
 	      :map doc-view-mode-map
 	      ("T p" . tesseract/doc-view/ocr-current-page)
 	      ("T a" . tesseract/doc-view/ocr-this-pdf)
 	      ("T s" . tesseract/doc-view/ocr-current-slice)))
 #+END_SRC
 
+#+RESULTS:
+: t
+
 * Usage
+
+There is on global command provided:
+
+ - =tesseract-change-language= lets you change the language currently used by any Tesseract command. You will be provided by a selection of choises available on your system.
+You have to install additional language packages if needed via your system package manager.
 
 At the moment the package provides integration in Dired and Doc-View.
 
 ** Dired  integration
-For Dired there is one command: =tesseract/dired/marked-to-txt= (Bound to ~T~ in the example configuration).
+For Dired there are two command:
+
+ 1) =tesseract/dired/marked-to-txt= (Bound to ~T t~ in the example configuration).
 As the name suggests it runs =Tesseract= on each file that is marked (if it is supported) and creates a text file with the same base name. Supported file types are:
+
+ 2) =tesseract/dired/combine-marked-to-pdf= (Bound to ~T c~ in the example configuration). It takes a number of image files an combines the into a PDF file with text layer.
 
 #+BEGIN_QUOTE
 Tesseract uses the Leptonica library to read images in one of these formats:
