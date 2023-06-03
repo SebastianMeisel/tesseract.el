@@ -61,7 +61,6 @@ Reach out to me:
 ;; Put tesseract.el in your load-path and add (require 'tesseract) to your .emacs file.
 #+END_SRC
 
-
 ** Customization
 Define a customization group:
 
@@ -118,7 +117,6 @@ Use the =--list-langs= parameter of Tesseract to list with languages are availab
   (split-string (nth 1 (split-string (shell-command-to-string "tesseract --list-langs") ":" nil))))
 #+END_SRC
 
-
 ** DONE Change currently used language
 CLOSED: [2023-05-31 Wed 21:44]
 
@@ -134,7 +132,7 @@ Set a variable that we can change on will.
 Prompt user to select a language from options using completing-read using =tesseract/default-language= as input for options.
 
 #+BEGIN_SRC emacs-lisp
-(defun tesseract/change-language ()
+(defun tesseract-change-language ()
   "Change the language based on the options given by tesseract/list-languages."
   (interactive)
   (let((options (tesseract/list-languages)))
@@ -259,7 +257,8 @@ First again we need to require =dired= because we use some of it's functions:
 (require 'dired)
 #+END_SRC
 
-** WIP Image files
+** DONE Image files
+CLOSED: [2023-06-02 Fr 13:09]
    Simply run Tesseract on any supported image files. Supported format are:
 
 #+BEGIN_QUOTE
@@ -281,7 +280,6 @@ The following function processes a list of images an runs Tesseract on them. For
 #+BEGIN_SRC emacs-lisp
 (defun tesseract/ocr-image (images)
   "Run Tesseract OCR on each image.
-  
   IMAGES is a list of paths to the images."
   (let ((tesseract-language tesseract/current-language))
     (dolist (current-image images)
@@ -296,7 +294,8 @@ The following function processes a list of images an runs Tesseract on them. For
 		     "quiet"))))
 #+END_SRC
 
-** WIP Process PDFs
+** DONE Process PDFs
+CLOSED: [2023-06-02 Fr 13:09]
 *** ERLEDIGEN Txt-Output
 
 This function takes a PDF file path as an argument. It uses the 'convert' command from ImageMagick to convert the PDF pages into individual PNG images. The resulting images are then processed using Tesseract OCR, which extracts text from each image. The OCR results are saved in a text file with the same name as the input PDF file, but with a 'txt' extension.
@@ -340,25 +339,68 @@ Note that this function assumes the presence of the 'convert' and 'tesseract' co
 	  (write-file output-file))))))
 #+END_SRC
 
+*** DONE Helper function for PDF textlayer creation
+CLOSED: [2023-06-02 Fr 21:31]
+
+=tesseract/combine-images-to-text-layer-pdf= takes a list of image file paths, a directory path, and an output PDF path as inputs. It uses the Tesseract OCR (Optical Character Recognition) engine to extract text from the images and creates PDFs with a text layer. Finally, it combines these PDFs into a single PDF file.
+
+Here's a breakdown of how the code works:
+
+1. It starts by creating a temporary directory to store intermediate files.
+2. It sets the Tesseract language to be used for OCR. The variable "tesseract/current-language" specifies the desired language.
+3. It iterates over each image file path in the provided list.
+4. For each image, it constructs the input image file path and the base name for the temporary PDF file.
+5. It calls the external program "tesseract" using the "call-process" function to perform OCR on the image. It passes the input image, temporary PDF base, Tesseract language, and other options.
+6. The OCR output is generated as a PDF file with a similar base name to the input image.
+7. After processing all the images, it uses the "pdfjam" command-line tool to combine the individual PDF files into a single PDF. The "pdfjam" command is executed using "shell-command".
+8. The resulting combined PDF file is then renamed to the specified output PDF path.
+
+Overall, this code takes advantage of Tesseract OCR and other external tools to extract text from multiple images and generate a consolidated PDF file with a text layer.
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/combine-images-to-text-layer-pdf (images path out-pdf)
+  "Run Tesseract OCR on IMAGES creating PDFs with text layer and
+   combine them to a single PDF.
+  IMAGES is a list of image file path.
+  PATH is the directory where the image files are located.
+  OUT-PDF is the final PDF."
+  (let ((tmp-directory (make-temp-file "tesseract-images" t))
+	(tesseract-language tesseract/current-language))
+  (dolist (current-image images)
+    (let* ((input (concat path "/" current-image))
+	   (tmp-pdf-base (concat tmp-directory "/" (car(split-string current-image "\\.png$" t)))))
+      (call-process  "tesseract"
+			   nil
+			   "*tesseract-output*"
+			   nil
+			   input
+			   tmp-pdf-base 
+			   "-l" tesseract-language
+			   "quiet"
+			   "pdf")))
+  (shell-command (concat "pdfjam " tmp-directory "/*.pdf$t"))
+  (let ((tmp-pdf-output (car(directory-files "./" nil "pdfjam.pdf$"))))
+    (rename-file tmp-pdf-output out-pdf t))))
+#+END_SRC
+
+
 *** Text layer in PDF
 
-=tesseract/ocr-pdf-text-layer= enables the addition of a text layer to a PDF file by performing OCR on each page of the PDF using Tesseract OCR.
+=tesseract/ocr-pdf-text-layer=  takes a PDF file as input and adds a text layer to the PDF using Tesseract OCR.
 
- - The function takes a single argument pdf, which represents the path to the PDF file to be processed.
- - Within the function, a temporary directory is created using make-temp-file, and its path is stored in the variable tmp-directory.
- - The PDF file is converted into individual PNG pages using the convert command-line tool. The resulting images are saved in the pdf-pages file within the temporary directory. The conversion process uses a density of 300x300 pixels per inch and converts the colorspace to RGB.
- - The directory-files function is used to retrieve a list of image files in the temporary directory with the extension .png. These files represent the converted PDF pages.
- - The function then iterates over each current-image in the images list. For each image, it performs OCR using the tesseract command-line tool. The input image file, temporary PDF file base name, and the Tesseract language specified by the tesseract-language variable are passed as arguments to the tesseract command.
- - After processing all the images, the pdfjam command is used to merge the resulting PDF files from the OCR process. The merged PDF is saved as pdf-pages-*.pdf in the temporary directory.
- - Finally, the resulting merged PDF file is renamed to match the original PDF file name, and the temporary directory is cleaned up.
- - In summary, this function enables the addition of a text layer to a PDF file by performing OCR on each page of the PDF using Tesseract OCR.
+Here's a breakdown of how the code works:
 
+It starts by creating a temporary directory to store intermediate files. The directory name is generated using the "make-temp-file" function.
+It constructs the file path for the converted PDF pages. The variable "pdf-pages" represents the output file path for the converted pages in PNG format.
+It calls the external program "convert" using the "call-process" function to convert the input PDF into individual PNG images. The "convert" program is typically part of the ImageMagick software suite. It sets the density to 300x300 dots per inch (dpi) and the colorspace to RGB.
+After converting the PDF into PNG images, it retrieves the list of PNG files from the temporary directory using "directory-files". The "images" variable holds the list of PNG file names.
+It calls the function "tesseract/combine-images-to-text-layer-pdf" to perform OCR on the PNG images and create a PDF with a text layer. It passes the list of image files, temporary directory path, and the original PDF path as arguments.
+In summary, this code utilizes the "convert" program from ImageMagick to convert a PDF into individual PNG images. It then uses the "tesseract/combine-images-to-text-layer-pdf" function to perform OCR on these PNG images and generate a PDF file with a text layer added.
 
 #+BEGIN_SRC emacs-lisp
 (defun tesseract/ocr-pdf-text-layer (pdf)
   "Add a text layer to  PDF using Tesseract OCR."
-  (let* ((tesseract-language tesseract/current-language)
-	 (tmp-directory (make-temp-file "tesseract" t nil))
+  (let* ((tmp-directory (make-temp-file "tesseract" t nil))
 	 (pdf-pages (concat tmp-directory "/pdf-pages.png")))
     (call-process "convert"
 		    nil
@@ -370,25 +412,11 @@ Note that this function assumes the presence of the 'convert' and 'tesseract' co
 		    "-colorspace" "RGB"
 		    pdf-pages)
       (let ((images (directory-files tmp-directory nil "png$")))
-	(dolist (current-image images)
-	  (let* ((input (concat tmp-directory "/" current-image))
-		 (tmp-pdf-base (concat tmp-directory "/" (car(split-string current-image "\\.png$" t)))))
-	    (call-process  "tesseract"
-			   nil
-			   "*tesseract-output*"
-			   nil
-			   input
-			   tmp-pdf-base 
-			   "-l" tesseract-language
-			   "quiet"
-			   "pdf")))
-	  (shell-command (concat "pdfjam " tmp-directory "/pdf-pages-*.pdf"))
-	  (let ((tmp-pdf-output (car(directory-files "./" nil "pdfjam.pdf$"))))
-	    (rename-file tmp-pdf-output pdf t)))))
+	(tesseract/combine-images-to-text-layer-pdf images tmp-directory pdf))))
 #+END_SRC
 
 
-*** ERLEDIGEN Org-mode output
+*** TODO Org-mode output
 The Idea is to create an Org-mode file, with a heading for each page. Maybe even include images?
 
 ** DONE Run Tesseract on marked files
@@ -401,7 +429,7 @@ To filter the marked files for supported formats we first need 2 filter function
   "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
   "Regular expression for image file types supported by Tesseract (Leptonica).")
 
-(defun tesseract/dired/filter-files (file)
+(defun tesseract/dired/filter-images (file)
   "Filter marked files for supported file types.
   FILE is a file path to match."
   (string-match-p tesseract-image-regexp file))
@@ -421,8 +449,6 @@ To filter the marked files for supported formats we first need 2 filter function
  - It then iterates over each pdf in the pdfs list. If pdf-to-pdf is t, it calls the function tesseract/ocr-pdf-text-layer on the PDF file to add a text layer. Otherwise, it calls tesseract/ocr-pdf to perform OCR on the PDF file.
  - After processing the PDF files, it calls tesseract/ocr-image on the images list to perform OCR on the images.
  - Finally, it reverts the dired buffer to reflect any changes made to the files, using (revert-buffer t t t).
-
-
 
 
 #+BEGIN_SRC emacs-lisp
@@ -455,6 +481,43 @@ To filter the marked files for supported formats we first need 2 filter function
 	  (tesseract/ocr-pdf-text-layer pdf)
 	(tesseract/ocr-pdf pdf)))
     (tesseract/ocr-image images))
+  (revert-buffer t t t))
+  #+END_SRC
+
+
+*** TODO Combine multiple images to PDF with text layer
+
+
+=tesseract/dired/combine-marked-to-pdf= provides an interactive way to combine marked image files in a Dired buffer, perform OCR on them using Tesseract, and generate a PDF file with a text layer.
+
+
+- The given code is a Common Lisp function named "tesseract/dired/combine-marked-to-pdf". This function is designed to be called interactively and performs the following tasks:
+- It first checks if Tesseract OCR and Pdfjam are installed on the system. If either of them is not installed, it raises an error message.
+- It uses the function dired-get-marked-files to obtain a list of image files that are marked in the current Dired buffer. The dired-get-marked-files function is provided by Emacs and retrieves the marked file names.
+- It uses the dired-current-directory function to get the current directory path.
+- It prompts the user to enter an output filename for the resulting PDF. The default filename is set to "Tesseract-Output.pdf". The user input is obtained using the read-string function.
+- It calls the function tesseract/combine-images-to-text-layer-pdf with the obtained list of image files, current directory path, and output filename as arguments. This function will perform OCR on the marked images and generate a PDF with a text layer.
+- After combining the images and generating the PDF, it reverts the Dired buffer to reflect the changes made.
+
+
+#+BEGIN_SRC emacs-lisp
+(defun tesseract/dired/combine-marked-to-pdf ()
+  "Run Tesseract OCR on marked image files, if they are supported.
+   Created PDFs with text-layer and combine them."
+  (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
+  (when (not pdfjam-installed-p)
+    (error "Pdfjam is not installed on your system."))
+  (let ((images (dired-get-marked-files
+		'no-dir'
+		nil
+		'tesseract/dired/filter-images
+		nil
+		"No supported files selected."))
+	 (path (dired-current-directory))
+	(output-file (read-string "Output filename (PDF): " nil 'tesseract/output-file "Tesseract-Output.pdf")))
+    (tesseract/combine-images-to-text-layer-pdf images path output-file))
   (revert-buffer t t t))
   #+END_SRC
 

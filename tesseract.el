@@ -65,7 +65,7 @@
   "Language currently used for Tesseract OCR.
    Should only be changed use tesseract/change-language")
 
-(defun tesseract/change-language ()
+(defun tesseract-change-language ()
   "Change the language based on the options given by tesseract/list-languages."
   (interactive)
   (let((options (tesseract/list-languages)))
@@ -101,16 +101,18 @@
     (error "ImageMagick is not installed on your system."))
   (let* ((current-image (plist-get (cdr (image-mode-window-get 'image)) :file))
 	 (slice (doc-view-current-slice))
-	 (scale 1);;(/ doc-view-resolution 100))
-	 (x (int-to-string (/(nth 0 slice) scale)))
-	 (y (int-to-string (/(nth 1 slice) scale)))
-         (w (int-to-string (/(nth 2 slice) scale)))
-	 (h (int-to-string (/(nth 3 slice) scale)))
+	 (resolution (int-to-string doc-view-resolution))
+	 (x (int-to-string (nth 0 slice)))
+	 (y (int-to-string (nth 1 slice)))
+         (w (int-to-string (nth 2 slice)))
+	 (h (int-to-string (nth 3 slice)))
 	 (temp-image (make-temp-file "slice" nil ".png"))
 	 (tesseract-language tesseract/current-language))
     (shell-command (concat "convert "
+			   " -density " resolution " "
 			   current-image
 			   " -crop " w "x" h "+" x "+" y
+			   " -density " resolution
 			   " -colorspace RGB "
 			   temp-image))
     (with-current-buffer (get-buffer-create "*tesseract*")
@@ -148,7 +150,6 @@
 
 (defun tesseract/ocr-image (images)
   "Run Tesseract OCR on each image.
-  
   IMAGES is a list of paths to the images."
   (let ((tesseract-language tesseract/current-language))
     (dolist (current-image images)
@@ -190,10 +191,33 @@
 			   "quiet"))
 	  (write-file output-file))))))
 
+(defun tesseract/combine-images-to-text-layer-pdf (images path out-pdf)
+  "Run Tesseract OCR on IMAGES creating PDFs with text layer and
+   combine them to a single PDF.
+  IMAGES is a list of image file path.
+  PATH is the directory where the image files are located.
+  OUT-PDF is the final PDF."
+  (let ((tmp-directory (make-temp-file "tesseract-images" t))
+	(tesseract-language tesseract/current-language))
+  (dolist (current-image images)
+    (let* ((input (concat path "/" current-image))
+	   (tmp-pdf-base (concat tmp-directory "/" (car(split-string current-image "\\.png$" t)))))
+      (call-process  "tesseract"
+			   nil
+			   "*tesseract-output*"
+			   nil
+			   input
+			   tmp-pdf-base 
+			   "-l" tesseract-language
+			   "quiet"
+			   "pdf")))
+  (shell-command (concat "pdfjam " tmp-directory "/*.pdf$t"))
+  (let ((tmp-pdf-output (car(directory-files "./" nil "pdfjam.pdf$"))))
+    (rename-file tmp-pdf-output out-pdf t))))
+
 (defun tesseract/ocr-pdf-text-layer (pdf)
   "Add a text layer to  PDF using Tesseract OCR."
-  (let* ((tesseract-language tesseract/current-language)
-	 (tmp-directory (make-temp-file "tesseract" t nil))
+  (let* ((tmp-directory (make-temp-file "tesseract" t nil))
 	 (pdf-pages (concat tmp-directory "/pdf-pages.png")))
     (call-process "convert"
 		    nil
@@ -205,27 +229,13 @@
 		    "-colorspace" "RGB"
 		    pdf-pages)
       (let ((images (directory-files tmp-directory nil "png$")))
-	(dolist (current-image images)
-	  (let* ((input (concat tmp-directory "/" current-image))
-		 (tmp-pdf-base (concat tmp-directory "/" (car(split-string current-image "\\.png$" t)))))
-	    (call-process  "tesseract"
-			   nil
-			   "*tesseract-output*"
-			   nil
-			   input
-			   tmp-pdf-base 
-			   "-l" tesseract-language
-			   "quiet"
-			   "pdf")))
-	  (shell-command (concat "pdfjam " tmp-directory "/pdf-pages-*.pdf"))
-	  (let ((tmp-pdf-output (car(directory-files "./" nil "pdfjam.pdf$"))))
-	    (rename-file tmp-pdf-output pdf t)))))
+	(tesseract/combine-images-to-text-layer-pdf images tmp-directory pdf))))
 
 (defconst tesseract-image-regexp
   "\\.\\(GIF\\|JP\\(?:E?G\\)\\|PN[GM]\\|TIFF?\\|BMP\\|gif\\|jp\\(?:e?g\\)\\|pn[gm]\\|tiff?\\|bmp\\)\\'"
   "Regular expression for image file types supported by Tesseract (Leptonica).")
 
-(defun tesseract/dired/filter-files (file)
+(defun tesseract/dired/filter-images (file)
   "Filter marked files for supported file types.
   FILE is a file path to match."
   (string-match-p tesseract-image-regexp file))
@@ -264,6 +274,25 @@
 	  (tesseract/ocr-pdf-text-layer pdf)
 	(tesseract/ocr-pdf pdf)))
     (tesseract/ocr-image images))
+  (revert-buffer t t t))
+
+(defun tesseract/dired/combine-marked-to-pdf ()
+  "Run Tesseract OCR on marked image files, if they are supported.
+   Created PDFs with text-layer and combine them."
+  (interactive)
+  (when (not tesseract-installed-p)
+    (error "Tesseract is not installed on your system."))
+  (when (not pdfjam-installed-p)
+    (error "Pdfjam is not installed on your system."))
+  (let ((images (dired-get-marked-files
+		'no-dir'
+		nil
+		'tesseract/dired/filter-images
+		nil
+		"No supported files selected."))
+	 (path (dired-current-directory))
+	(output-file (read-string "Output filename (PDF): " nil 'tesseract/output-file "Tesseract-Output.pdf")))
+    (tesseract/combine-images-to-text-layer-pdf images path output-file))
   (revert-buffer t t t))
 
 (provide 'tesseract)
