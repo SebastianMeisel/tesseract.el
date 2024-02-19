@@ -68,8 +68,8 @@
 (defun tesseract-change-language ()
   "Change the language based on the options given by tesseract/list-languages."
   (interactive)
-  (let((options (tesseract/list-languages)))
-    (setq tesseract/current-language (completing-read "Language:" options nil t "eng" 'tesseract/language-history))))
+  (let ((options (tesseract/list-languages)))
+    (setq tesseract/current-language (completing-read "Language: " options nil t tesseract/current-language 'tesseract/language-history))))
 
 (require 'doc-view)
 
